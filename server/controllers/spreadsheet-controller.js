@@ -23,7 +23,7 @@ var processGRNmap = function (path, res, app) {
     // If all looks well, return the network with an all clear
     res.json(network) :
     // If all does not look well, return the network with an error 400
-    res.json(400, network);
+    res.json(400, network); 
 };
 
 var parseSheet = function(sheet) {
@@ -48,20 +48,20 @@ var parseSheet = function(sheet) {
       targetGenes = [];
   
   //Look for the worksheet containing the network data
-  for (var i = 0; i < sheet.worksheets.length; i++) {
-    if (sheet.worksheets[i].name === "network") {
+  for (var i = 0; i < sheet.length; i++) {
+    if (sheet[i].name === "network") {
       //Here we have found a sheet containing simple data. We keep looking
       //in case there is also a sheet with optimized weights
-      currentSheet = sheet.worksheets[i];
-    } else if (sheet.worksheets[i].name === "network_optimized_weights") {
+      currentSheet = sheet[i];
+    } else if (sheet[i].name === "network_optimized_weights") {
       //We found a sheet with optimized weights, which is the ideal data source.
       //So we stop looking.
-      currentSheet = sheet.worksheets[i];
+      currentSheet = sheet[i];
       network.sheetType = "weighted";
       break;
     }
   }
-
+  
   // If it didn't find a network/network_optimized_weights sheet
   if (currentSheet === undefined) { 
     network.errors.push(errorList.missingNetworkError)
@@ -71,26 +71,24 @@ var parseSheet = function(sheet) {
   for (var row = 0, column = 1; row < currentSheet.data.length; row++) {
     if(currentSheet.data[row] === undefined) { // if the current row is empty 
       network.warnings.push(warningsList.emptyRowWarning(row));
-
     } else { // if the row has data...
       // Genes found when row = 0 are targets. Genes found when column = 0 are source genes.
       // We set column = 1 in the for loop so it skips row 0 column 0, since that contains no matrix data.
-      // Yes, the rows and columns use array numbering. That is, they start at 0, not 1.
+      // The rows and columns use array numbering. That is, they start at 0, not 1.
       try { // This prevents the server from crashing if something goes wrong anywhere in here
         while(column < currentSheet.data[row].length) { // While we haven't gone through all of the columns in this row...
           if (row === 0) { // If we are at the top of a new column...
             // These genes are the source genes
             try {
               currentGene = {name: currentSheet.data[0][column]}; 
-              // Set genes to upper case so case doesn't matter in error checking; ie: Cin5 is the same as cin5
-              if(currentGene.name === undefined) {
+              if (currentGene.name === undefined) {
                 network.warnings.push(warningsList.missingSourceGeneWarning("undefined", column));
-              } else if(isNaN(currentGene.name.value) && typeof currentGene.name.value != "string") {
+              } else if(isNaN(currentGene.name) && !isString(currentGene.name)) {
                 network.warnings.push(warningsList.missingSourceGeneWarning("NaN", column));
               } else {
-                sourceGenes.push(String(currentGene.name.value.toUpperCase())); 
-                genesList.push(String(currentGene.name.value.toUpperCase())); 
-                currentGene.name = currentGene.name.value;
+                // Set genes to upper case so case doesn't matter in error checking; ie: Cin5 is the same as cin5
+                sourceGenes.push(String(currentGene.name.toUpperCase())); 
+                genesList.push(String(currentGene.name.toUpperCase())); 
                 network.genes.push(currentGene);
               }
             } catch (err) {
@@ -103,23 +101,23 @@ var parseSheet = function(sheet) {
               currentGene = {name: currentSheet.data[row][0]}; 
               if(currentGene.name === undefined) {
                 network.warnings.push(warningsList.missingTargetGeneWarning("undefined", row));
-              } else if(isNaN(currentGene.name.value) && typeof currentGene.name.value != "string") {
+              } else if(isNaN(currentGene.name) && typeof currentGene.name != "string") {
                 network.warnings.push(warningsList.missingTargetGeneWarning("NaN", row));
               } else {
-                targetGenes.push(String(currentGene.name.value.toUpperCase()));
+                targetGenes.push(String(currentGene.name.toUpperCase()));
                 // Here we check to see if we've already seen the gene name that we're about to store
                 // Genes may or may not be present due to asymmetry or unorderedness
                 // If it's in the genesList, it will return a number > 0, so we won't store it
                 // If it's not there, it will return -1, so we add it. 
-                if(genesList.indexOf(String(currentGene.name.value.toUpperCase())) === -1) {
-                  genesList.push(String(currentGene.name.value.toUpperCase()));
+                if(genesList.indexOf(String(currentGene.name.toUpperCase())) === -1) {
+                  genesList.push(String(currentGene.name.toUpperCase()));
                   currentGene.name = currentGene.name.value;
                   network.genes.push(currentGene);
                 } 
               }
             } catch (err) {
-              sourceGene = currentSheet.data[0][column].value; 
-              targetGene = currentSheet.data[row][0].value;
+              sourceGene = currentSheet.data[0][column]; 
+              targetGene = currentSheet.data[row][0];
               network.errors.push(errorList.corruptGeneError(row, column));
               return network;
             };
@@ -129,23 +127,23 @@ var parseSheet = function(sheet) {
             try {
               if (currentSheet.data[row][column] === undefined) {
                 network.warnings.push(warningsList.invalidMatrixDataWarning(row, column));
-              } else if (isNaN(+("" + currentSheet.data[row][column].value))) {
+              } else if (isNaN(+("" + currentSheet.data[row][column]))) {
             // TODO: Check for NaNs within the matrix and return an error - determine what is "inside the matrix"
                 network.warnings.push(warningsList.dataTypeWarning(row, column));
               } else {
-                if (currentSheet.data[row][column].value !== 0) { // We only care about non-zero values
+                if (currentSheet.data[row][column] !== 0) { // We only care about non-zero values
                   // Grab the source and target genes' names
                   sourceGene = currentSheet.data[0][column]; 
                   targetGene = currentSheet.data[row][0];
                   if(sourceGene === undefined || targetGene === undefined) {
                     network.warnings.push(warningsList.randomDataWarning("undefined", row, column));
-                  } else if((isNaN(sourceGene.value) && typeof sourceGene.value != "string") || (isNaN(targetGene.value) && typeof targetGene.value != "string")) {
+                  } else if((isNaN(sourceGene) && !isString(sourceGene)) || (isNaN(targetGene) && !isString(targetGene))) {
                     network.warnings.push(warningsList.randomDataWarning("NaN", row, column));
                   } else {
                     // Grab the source and target genes' numbers
-                    sourceGeneNumber = genesList.indexOf(sourceGene.value.toUpperCase());
-                    targetGeneNumber = genesList.indexOf(targetGene.value.toUpperCase());
-                    currentLink = {source: sourceGeneNumber, target: targetGeneNumber, value: currentSheet.data[row][column].value};
+                    sourceGeneNumber = genesList.indexOf(sourceGene.toUpperCase());
+                    targetGeneNumber = genesList.indexOf(targetGene.toUpperCase());
+                    currentLink = {source: sourceGeneNumber, target: targetGeneNumber, value: currentSheet.data[row][column]};
                     // Here we set the properties of the current link before we push them to the network
                     if (currentLink.value > 0) { // If it's a positive number, mark it as an activator
                       currentLink.type = "arrowhead";
@@ -191,8 +189,6 @@ var parseSheet = function(sheet) {
   checkNetworkSize(network.errors, network.warnings, genesList, network.positiveWeights, network.negativeWeights);
 
   // We're done. Return the network.
-
-
   return network;
 };
 
@@ -236,6 +232,15 @@ var checkGeneLength = function(errorArray, genesList) {
     }
   }
 }
+
+var isString = function (input) {
+  if (typeof input == 'string' || input instanceof String) {
+    return true;
+  } else { 
+    return false;
+  }
+};
+
 
 // This is the massive list of errors. Yay!
 // The graph will not load if an error is detected.
