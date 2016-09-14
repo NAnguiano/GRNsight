@@ -111,7 +111,6 @@ var parseSheet = function(sheet) {
                 // If it's not there, it will return -1, so we add it. 
                 if(genesList.indexOf(String(currentGene.name.toUpperCase())) === -1) {
                   genesList.push(String(currentGene.name.toUpperCase()));
-                  currentGene.name = currentGene.name.value;
                   network.genes.push(currentGene);
                 } 
               }
